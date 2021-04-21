@@ -57,7 +57,6 @@ elif res.status_code == 200:
     # if the hash was found on the server
     print(res.text)
 
-
 # while(True):
 #     filePath = input("Enter the path of the file along with the extention:")
 #     # try:
