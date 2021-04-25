@@ -23,7 +23,7 @@ status_codes = {200: "OK",
 
 # this is used to return the values in the env file as a dictionary 
 config = dotenv_values("props.env")
-# configure headers and get the API request ready
+
 file_upload_url = "https://api.metadefender.com/v4/file"
 file_hash_check_url = "https://api.metadefender.com/v4/hash/"
 
@@ -44,12 +44,9 @@ def calculateHash(filePath):
 def main(filePath):
     # check the hash of the file using the API to see if it has already been scanned
     headers = {'apikey': config["API_KEY"]}
-    # filePath = input("Enter the path of the file along with the extention:")
 
     hashOfFile = calculateHash(filePath)
-    print(headers, file_hash_check_url+hashOfFile)
     res = requests.get(file_hash_check_url+hashOfFile, headers=headers)
-    print(res.text)
 
     # testHash = "6A5C19D9FFE8804586E8F4C0DFCC66DE"
     # res = requests.get(file_hash_check_url+testHash, headers= headers)
@@ -58,46 +55,47 @@ def main(filePath):
     if res.status_code == 404:
         print("Hash not found on Server. Initiating file upload and scan.")
 
-        # here if the file size is greater than the buffer/memory size, we have to send multiple parts to the server by multiple requests
+        # here if the file size is greater than the buffer/memory size, we have to send multiple parts in the form data and change content-type in request headers as well
         f = open(filePath, 'rb').read()
         headers = {'apikey': config["API_KEY"],
                 'content-type': 'application/octet-stream'
                 }
         res = {}
         res = requests.post(file_upload_url, headers=headers, data=f)
+        if res.status_code == 200:
+            print(f"Upload initiated.")
         res = json.loads(res.text)
 
         # dict to hold polling results
-        pollingRes = {'process_info': {'progress_percentage': 0}}
-        print(f"Upload initiated. Data ID is:  {res['data_id']}")
+        pollingRes = {}
 
         while True:
             headers = {'apikey': config["API_KEY"]
                     }
             # Check HTTP response code here before parsing as JSON
             urlString = "{}/{}".format(file_upload_url, res['data_id'])
-            pollingRes = json.loads(requests.get(urlString, headers=headers).text)
-
-            # check to see if the status field is not present. If it isn't, it means that scan result has been returned
-            if "status" not in pollingRes:
-                break
-            
-            print(f"File still being analysed: {pollingRes}")
-
-            # this sleep time can also be changed based on the file size so that we don't make too many requests for higher file sizes and too less for smaller file sizes 
-            sleepTime = 0.5
-            sleep(sleepTime)
-            print(f"Data with data ID: {pollingRes['data_id']}  is being scanned. Please wait...")
-        # once the results are obtained, print em out
+            pollResult = requests.get(urlString, headers=headers)
+            pollingRes = json.loads(pollResult.text)
+            if pollResult.status_code == 200:
+                # check to see if the status field is not present. If it isn't, it means that scan result has been returned
+                if "status" not in pollingRes:
+                    break
+                
+                print(f"File still being analysed: {pollingRes}")
+                # this sleep time can also be changed based on the file size so that we don't make too many requests for higher file sizes and too less for smaller file sizes 
+                sleepTime = 0.5
+                sleep(sleepTime)
+                print(f"Data with data ID: {pollingRes['data_id']}  is being scanned. Please wait...")
+            elif pollResult.status_code == 204:
+                # we can use the status code dict created to have a switcher dedicated to handling each and every possible result from the API
+                print(status_codes[pollResult.status_code])
+        # once the results are obtained, print them out in the order specified
         print("filename: ", filePath)
         for i in pollingRes['scan_results']['scan_details'].keys():
             print("engine:", i)
-            print("threat_found:", pollingRes['scan_results']
-                  ['scan_details'][i]['threat_found'])
-            print("scan_result:", pollingRes['scan_results']
-                  ['scan_details'][i]['scan_result_i'])
-            print("def_time:", pollingRes['scan_results']
-                  ['scan_details'][i]['def_time'])
+            print("threat_found:", pollingRes['scan_results']['scan_details'][i]['threat_found'])
+            print("scan_result:", pollingRes['scan_results']['scan_details'][i]['scan_result_i'])
+            print("def_time:", pollingRes['scan_results']['scan_details'][i]['def_time'])
 
 
     elif res.status_code == 200:
@@ -107,13 +105,9 @@ def main(filePath):
         print("filename: ", filePath)
         for i in hashRes['scan_results']['scan_details'].keys():
             print("engine:", i)
-            print("threat_found:", hashRes['scan_results']
-                ['scan_details'][i]['threat_found'])
-            print("scan_result:", hashRes['scan_results']
-                ['scan_details'][i]['scan_result_i'])
-            print("def_time:", hashRes['scan_results']
-                ['scan_details'][i]['def_time'])
-        # print(hashRes['scan_results'])
+            print("threat_found:", hashRes['scan_results']['scan_details'][i]['threat_found'])
+            print("scan_result:", hashRes['scan_results']['scan_details'][i]['scan_result_i'])
+            print("def_time:", hashRes['scan_results']['scan_details'][i]['def_time'])
 
 
 if __name__ == '__main__':
@@ -123,9 +117,5 @@ if __name__ == '__main__':
     filePath = sys.argv[1]
     main(filePath)
 
-
-# res = requests.post(url, headers=headers)
-# print(res.text)
-# except:
 
 
