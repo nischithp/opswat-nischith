@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 
 4. Run the program using the following command: 
-python opswat-nischith <filename/filepath>
+python opswat-nischith.py <filename/filepath>
 
 where <filepath/filename> is the name or the path of the file you want to upload to check for malware. 
 This filename can be an absolute path or a relative path(relative to the root)
