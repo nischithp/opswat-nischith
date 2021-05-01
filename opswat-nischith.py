@@ -57,13 +57,15 @@ def main(filePath):
 
         maxFileSize = 65536
         if os.path.getsize(filePath) > maxFileSize:
-        # implement buffer and multipart upload
-            f = open(filePath, 'rb').read()
+
+            # implement buffer and multipart upload if the file size is bigger than a given number of size that we can specify - either based on our programming language constraints or security constraints
+            files = {'file': open(filePath, 'rb')} 
             print("File size is bigger than expected. Implementing multi-part upload.")
-            headers = {'apikey': config["API_KEY"],
-                       'content-type': 'application/multi-part'
+            headers = {'apikey': config["API_KEY"]
                        }
-            res = requests.post(file_upload_url, headers=headers, data=f)
+
+            # do not specify content-type in the header if sending files using 'files' parameter. Requests library automatically recognises it as a multi-part form data
+            res = requests.post(file_upload_url, headers=headers, files=files)
             if res.status_code == 200:
                 res = json.loads(res.text)
             else:
