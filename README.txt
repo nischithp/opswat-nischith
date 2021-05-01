@@ -28,7 +28,7 @@ pip install -r requirements.txt
 python opswat-nischith <filename/filepath>
 
 where <filepath/filename> is the name or the path of the file you want to upload to check for malware. 
-This filename can be an absolute path or a relative path(relative to the root)
+This filename can be an absolute path or a relative path(relative to the root).
 
 
 

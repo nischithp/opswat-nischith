@@ -55,16 +55,31 @@ def main(filePath):
     if res.status_code == 404:
         print("Hash not found on Server. Initiating file upload and scan.")
 
-        # here if the file size is greater than the buffer/memory size, we have to send multiple parts in the form data and change content-type in request headers as well
-        f = open(filePath, 'rb').read()
-        headers = {'apikey': config["API_KEY"],
-                'content-type': 'application/octet-stream'
-                }
-        res = {}
-        res = requests.post(file_upload_url, headers=headers, data=f)
-        if res.status_code == 200:
-            print(f"Upload initiated.")
-        res = json.loads(res.text)
+        maxFileSize = 65536
+        if os.path.getsize(filePath) > maxFileSize:
+        # implement buffer and multipart upload
+            f = open(filePath, 'rb').read()
+            print("File size is bigger than expected. Implementing multi-part upload.")
+            headers = {'apikey': config["API_KEY"],
+                       'content-type': 'application/multi-part'
+                       }
+            res = requests.post(file_upload_url, headers=headers, data=f)
+            if res.status_code == 200:
+                res = json.loads(res.text)
+            else:
+                print(f"Error. Multi-part file upload has failed. Response Status Code:{res.status_code}")
+        else:
+            # here if the file size is greater than the buffer/memory size, we have to send multiple parts in the form data and change content-type in request headers as well
+            f = open(filePath, 'rb').read()
+
+            headers = {'apikey': config["API_KEY"],
+                    'content-type': 'application/octet-stream'
+                    }
+            res = {}
+            res = requests.post(file_upload_url, headers=headers, data=f)
+            if res.status_code == 200:
+                print(f"Upload initiated.")
+            res = json.loads(res.text)
 
         # dict to hold polling results
         pollingRes = {}
@@ -73,15 +88,25 @@ def main(filePath):
             headers = {'apikey': config["API_KEY"]
                     }
             # Check HTTP response code here before parsing as JSON
-            urlString = "{}/{}".format(file_upload_url, res['data_id'])
+            urlString = f"{file_upload_url}/{res['data_id']}"
             pollResult = requests.get(urlString, headers=headers)
             pollingRes = json.loads(pollResult.text)
+
             if pollResult.status_code == 200:
-                # check to see if the status field is not present. If it isn't, it means that scan result has been returned
-                if "status" not in pollingRes:
-                    break
+                # check to see if the progress percentage field is present in the response. If it is, check to see if it is 100, then break and process the results
+                if "scan_results" in pollingRes:
+                    if "progress_percentage" in pollingRes["scan_results"]:
+                        if pollingRes["scan_results"]["progress_percentage"] == 100:
+                            print(f"Scan completed. Progress: {pollingRes['scan_results']['progress_percentage']} %")
+                            break
+                        else:
+                            print(f"Scan in progress. Progress: {pollingRes['scan_results']['progress_percentage']} %")
+                # if the status is still 'inqueue' and a progress percentage is not yet available from the response, then display where in the queue the request is
+                elif "status" in pollingRes:
+                    print(f" Please wait. Request in queue. Status: {pollingRes['status']}. \n You are {pollingRes['in_queue']} in queue.")
+
                 
-                print(f"File still being analysed: {pollingRes}")
+                print(f"File still being analysed.")
                 # this sleep time can also be changed based on the file size so that we don't make too many requests for higher file sizes and too less for smaller file sizes 
                 sleepTime = 0.5
                 sleep(sleepTime)
